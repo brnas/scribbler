@@ -12,7 +12,7 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 
 @implementation SketchController
 
-@synthesize activeSketchView, selectedColor, mainWindow, activeTabletID, isSticky, activeWindow, penIsNearTablet, mouseMode;
+@synthesize activeSketchView, selectedColor, mainWindow, activeTabletID, isSticky, isWhiteBoardVisible, activeWindow, penIsNearTablet, mouseMode;
 
 - (id) initWithMainWindow:(MainWindow *)theMainWindow
 {
@@ -49,10 +49,15 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 	penIsNearTablet = NO;
 	
 	isSticky = YES;
+	isWhiteBoardVisible = NO;
 	
 	activeTabletID = [[NSNumber alloc] init];
 	
 	activeScrollArea = NULL;
+	
+	// generate whiteBoard
+	whiteBoardView = [[SketchView alloc] initWithController:self andTabModel:nil];
+	
 	/*
 	NSCursor *myCursor = [NSCursor crosshairCursor];
 	[myCursor set];
@@ -274,7 +279,7 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 											   // GLOBAL - MOVING KEY WINDOW
 											   // ------------------------------------------------------------------------------- //
 											   
-											   if ([incomingEvent type] == NSLeftMouseDragged && isSticky) {
+											   if ([incomingEvent type] == NSLeftMouseDragged && isSticky && !isWhiteBoardVisible) {
 												   												   
 												   // check if we aren't accidentely on the scribbler window - if so don't handle dragging!
 												   // (this can happen if the user's pen diverges too fast from tablet and comes close again immediately)
@@ -329,7 +334,7 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 		 // + check for scrollWheel activity
 		 NSEventType eventType = [incomingEvent type];
 		 
-		 if (eventType == NSLeftMouseUp || eventType == NSScrollWheel || eventType == NSLeftMouseDragged) {
+		 if (eventType == NSLeftMouseUp || eventType == NSScrollWheel || eventType == NSLeftMouseDragged && !isWhiteBoardVisible) {
 			 
 			 // if we can load AXData
 			 if ([activeWindow loadAccessibilityData]) {
@@ -743,7 +748,32 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 		[activeSketchView setDraw:YES];
 		[activeSketchView setNeedsDisplay:YES];
 	}
-	
+}
+
+- (void) setWhiteBoardVisible:(BOOL)flag {
+	if(flag) {
+		NSLog(@"setWhiteBoardVisible=YES");
+		[self setIsWhiteBoardVisible:YES];
+		[self keyWindowHandler];
+		[activeSketchView foldViewIn];
+	}
+	else {
+		NSLog(@"setWhiteBoardVisible=NO");
+		[activeSketchView foldViewOut];
+		//[self setIsWhiteBoardVisible:NO];
+		//[self keyWindowHandler];
+	}
+}
+
+- (void)animationDidStop:(CAAnimation *)animation finished:(BOOL)flag 
+{
+    //if(self.window.alphaValue == 0.00) [self close]; //detect end of fade out and close the window
+	NSString *type = [animation valueForKey:@"animationType"];
+	NSLog(@"animation stopped with anim=%@",type);
+	if ([type isEqualToString:@"foldViewOut"]) {
+		[self setIsWhiteBoardVisible:NO];
+		[self keyWindowHandler];
+	}	
 }
 
 #pragma mark KeyWindow Functions
@@ -810,78 +840,101 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 {
 	//NSLog(@"--- keyWindowHandler ---");
 	
-	// get current key window infos
-	NSMutableDictionary* currentInfos = [self getCurrentKeyWindowInfos];
-	// get keyWindowID
-	NSNumber* keyID = [self getKeyWindowID:currentInfos];
-	// get keyWindow App Name
-	NSString* appName = [self getKeyWindowsApplicationName:currentInfos];
-	// get processID
-	int pid = [self getProcessID:currentInfos];
-	
-	if (keyID == nil) {
-		NSLog(@"returned from keyWindowHandler because keyID was nil!");
-		return;
-	}
-	
-	// check if we accidentely have scribbler as key or a unTitled app, like the dock
-	if ([appName isEqualToString:@"Scribbler"] /*|| appName==NULL*/) {
-		NSLog(@"returned from keyWindowHandler because the window was scribbler or an app without window!");
-		return;
-	}
-	
-	// check if the key is on no menuBar
-	if ([activeWindow loadAccessibilityData]) {
-		AXUIElementRef focusedUIElement = (AXUIElementRef)[activeWindow getUIElementUnderMouse];
-		if(![activeWindow isUIElementChildOfWindow:focusedUIElement]) {
-			NSLog(@"returned from keyWindowHandler because of no window!");
+	// if the whiteBoard is active, we don't need to get the current keyWindowInfos
+	if (!isWhiteBoardVisible) {
+		
+		// get current key window infos
+		NSMutableDictionary* currentInfos = [self getCurrentKeyWindowInfos];
+		// get keyWindowID
+		NSNumber* keyID = [self getKeyWindowID:currentInfos];
+		// get keyWindow App Name
+		NSString* appName = [self getKeyWindowsApplicationName:currentInfos];
+		// get processID
+		int pid = [self getProcessID:currentInfos];
+
+		if (keyID == nil) {
+			NSLog(@"returned from keyWindowHandler because keyID was nil!");
 			return;
 		}
-	}
-	
-	// lookup if there is an arrayEntry for this ID
-	if ([windowModelList objectForKey:keyID] == nil) {
-		
-		// create the new classes for the window
-		SketchModel *newModel  = [[SketchModel alloc] initWithController:self andWindow:mainWindow];
-		WindowModel *newWindow = [[WindowModel alloc] initWithController:self];
-		
-		// the view is being created by the TabModel itself
-		// so we just query the view from the model
-		SketchView  *newView   = [[[newWindow activeSubWindow] view] retain];
-		
-		// add to our list
-		[windowModelList setObject:newWindow forKey:keyID];
-		activeWindow = newWindow;
-		
-		//NSLog(@"added window %@ from app %@ with id %@ to array",[windowModelList objectForKey:keyID],appName,keyID);
-		NSLog(@"we have now %d windows in our windowModelList", [windowModelList count]);
-		NSLog(@"added window %@ from app %@ with id %@ to array",[windowModelList objectForKey:keyID],appName,keyID);
-		
-		// set as active
-		activeSketchView = [newView retain];
-		[mainWindow setContentView:activeSketchView];
-		
-		// register keyWindow for accessibility notifications (to get notifications even if the user switch to another window via exposé)
-		[self registerForAccessibilityEvents:pid];
-		
-		// free your mind... uhm... memory
-		[newModel  release];
-		[newView   release];
-		[newWindow release];
-	}
-	else {
-		// switch to other view
-		
-		if (activeSketchView != [[[windowModelList objectForKey:keyID] activeSubWindow] view]) {
-			activeSketchView = [[[windowModelList objectForKey:keyID] activeSubWindow] view];
+
+		// check if we accidentely have scribbler as key or a unTitled app, like the dock
+		if ([appName isEqualToString:@"Scribbler"] /*|| appName==NULL*/) {
+			NSLog(@"returned from keyWindowHandler with reset to last active window because the new one was scribbler!");
+			// set the active window to the backupped reference of the last one
+			activeWindow = lastActiveWindow;
+			activeSketchView = lastActiveSketchView;
 			[mainWindow setContentView:activeSketchView];
+			return;
+		}
+
+		// check if the key is on no menuBar
+		if ([activeWindow loadAccessibilityData]) {
+			AXUIElementRef focusedUIElement = (AXUIElementRef)[activeWindow getUIElementUnderMouse];
+			if(![activeWindow isUIElementChildOfWindow:focusedUIElement]) {
+				NSLog(@"returned from keyWindowHandler because of no window!");
+				return;
+			}
+		}
+
+		// lookup if there is an arrayEntry for this ID
+		if ([windowModelList objectForKey:keyID] == nil) {
 			
-			activeWindow = [windowModelList objectForKey:keyID];
-			NSLog(@"in Array: switched to window %@ with id %@", activeSketchView, keyID);
-			//[keyID release];
+			// create the new classes for the window
+			SketchModel *newModel  = [[SketchModel alloc] initWithController:self andWindow:mainWindow];
+			WindowModel *newWindow = [[WindowModel alloc] initWithController:self];
+			
+			// the view is being created by the SubWindowModel itself
+			// so we just query the view from the model
+			SketchView  *newView   = [[[newWindow activeSubWindow] view] retain];
+			
+			// add to our list
+			[windowModelList setObject:newWindow forKey:keyID];
+			activeWindow = newWindow;
+						
+			//NSLog(@"added window %@ from app %@ with id %@ to array",[windowModelList objectForKey:keyID],appName,keyID);
+			NSLog(@"we have now %d windows in our windowModelList", [windowModelList count]);
+			NSLog(@"added window %@ from app %@ with id %@ to array",[windowModelList objectForKey:keyID],appName,keyID);
+			
+			// set as active
+			activeSketchView = [newView retain];
+			[mainWindow setContentView:activeSketchView];
+						
+			// register keyWindow for accessibility notifications (to get notifications even if the user switch to another window via exposé)
+			[self registerForAccessibilityEvents:pid];
+			
+			// save a reference as backup to switch back to that window in case of an error
+			lastActiveWindow = activeWindow;
+			lastActiveSketchView = activeSketchView;
+			
+			// free your mind... uhm... memory
+			[newModel  release];
+			[newView   release];
+			[newWindow release];
+		}
+		else {
+			// switch to other view
+			
+			if (activeSketchView != [[[windowModelList objectForKey:keyID] activeSubWindow] view]) {
+				activeSketchView = [[[windowModelList objectForKey:keyID] activeSubWindow] view];
+				[mainWindow setContentView:activeSketchView];
+				
+				activeWindow = [windowModelList objectForKey:keyID];
+				NSLog(@"in Array: switched to window %@ with id %@", activeSketchView, keyID);
+				
+				// save a reference as backup to switch back to that window in case of an error
+				lastActiveWindow = activeWindow;
+				lastActiveSketchView = activeSketchView;
+			}
+			
 		}
 		
+	}
+	// just change the activeSketchView
+	else if(isWhiteBoardVisible) {
+		NSLog(@"changed activeSketchView to WHITEBOARD");
+		activeSketchView = whiteBoardView;
+		[mainWindow setContentView:activeSketchView];
+		//[activeSketchView foldViewIn];
 	}
 }
 

@@ -11,14 +11,14 @@
 #import "Growl/GrowlApplicationBridge.h"
 
 @interface ScribblerAppDelegate : NSObject <NSApplicationDelegate, GrowlApplicationBridgeDelegate> {
-	NSWindow *window;
+	IBOutlet NSWindow *window, *whiteBoard;
 	IBOutlet NSMenu *statusMenu;
 	NSStatusItem *statusItem;
 	BOOL initialSwitchToKeyWindow;
 	
 }
 
-@property (assign) IBOutlet NSWindow *window;
+@property (assign) IBOutlet NSWindow *window, *whiteBoard;
 @property(readwrite, assign) BOOL initialSwitchToKeyWindow;
 
 @end

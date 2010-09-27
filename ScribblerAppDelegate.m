@@ -11,7 +11,7 @@
 
 @implementation ScribblerAppDelegate
 
-@synthesize window;
+@synthesize window, whiteBoard;
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
 	initialSwitchToKeyWindow = YES;

@@ -49,4 +49,7 @@
 - (void)updateKeyWindowBounds;
 - (void)setScreenShotFlashAlpha:(double)value;
 
+- (void)foldViewIn;
+- (void)foldViewOut;
+
 @end

@@ -7,6 +7,7 @@
 //
 
 #import <Cocoa/Cocoa.h>
+#import <QuartzCore/QuartzCore.h>
 #import "PointModel.h"
 #import "SketchModel.h"
 #import "MainWindow.h"
@@ -27,14 +28,16 @@
 	NSMutableDictionary			*	tablets;
 	ColorController				*	colorPalette;
 	NSMutableDictionary			*	windowModelList;
-	WindowModel					*	activeWindow;
-	SketchView					*	activeSketchView;
+	WindowModel					*	activeWindow, *lastActiveWindow;
+	SketchView					*	activeSketchView, *lastActiveSketchView;
+	SketchView					*	whiteBoardView;
 	MainWindow					*	mainWindow;
 	PointModel					*   startDragPoint;
 	PointModel					*	endDragPoint;
 	NSColor						*	selectedColor;
 	
 	BOOL							isSticky;
+	BOOL							isWhiteBoardVisible;
 	BOOL							erase;
 	BOOL							mouseMode;
 	BOOL							mainWindowWasVisible;
@@ -49,7 +52,7 @@
 @property (retain) SketchView *activeSketchView;
 @property (retain) MainWindow *mainWindow;
 @property (retain) NSNumber *activeTabletID;
-@property (readwrite) BOOL isSticky, penIsNearTablet, mouseMode;
+@property (readwrite) BOOL isSticky, isWhiteBoardVisible, penIsNearTablet, mouseMode;
 @property (retain) WindowModel *activeWindow;
 
 - (id) initWithMainWindow:(MainWindow *)theMainWindow;
@@ -60,6 +63,7 @@
 
 - (void) setClickThrough:(BOOL)flag;
 - (void) showHide;
+- (void) setWhiteBoardVisible:(BOOL)flag;
 
 - (NSMutableDictionary*)getCurrentKeyWindowInfos;
 - (NSNumber*) getKeyWindowID: (NSMutableDictionary*)windowInfos;

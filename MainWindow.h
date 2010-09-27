@@ -25,11 +25,13 @@
 }
 
 - (void) showHide:(id)sender;
+- (void) toggleSticky:(id)sender;
+- (void) toggleWhiteBoard:(id)sender;
+
 - (void) openFinder:(id)sender;
 - (void) actionQuit:(id)sender;
 - (void) showGlassPane:(BOOL)flag;
 
-- (void) toggleSticky:(id)sender;
 - (void) setPenColor:(id)sender;
 
 @property (readwrite, assign) PointModel *startDragPoint, *endDragPoint;
