@@ -92,6 +92,8 @@
 
 - (void)dealloc
 {
+	// before dealloc, end magicDetector in the controller
+	[controller setMagicDetectorShouldStop:YES];
 	[controller release];
 	[super dealloc];
 }

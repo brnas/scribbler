@@ -49,9 +49,14 @@
 	drawWindowBounds	=  NO;
 	drawMouseModeBounds	=  NO;	
 	
-	// enable layer control
-	[self setWantsLayer:YES];
-	[[self layer] setAnchorPoint:CGPointMake(0.0, 0.0)];
+	if (theTabModel == nil) {
+		// enable layer control
+		[self setWantsLayer:YES];
+		[[self layer] setAnchorPoint:CGPointMake(0.0, 0.0)];
+		// get original view bounds and enlarge the height to paint the shadow
+		NSRect oBounds = [self frame];
+		[self setFrame:NSMakeRect(oBounds.origin.x, oBounds.origin.y, oBounds.size.width, oBounds.size.height+30)];
+	}
 	
     return self;
 }
@@ -91,9 +96,14 @@
 	drawWindowBounds	=  NO;
 	drawMouseModeBounds	=  NO;
 	
-	// enable layer control
-	[self setWantsLayer:YES];
-	[[self layer] setAnchorPoint:CGPointMake(0.0, 0.0)];
+	if (theTabModel == nil) {
+		// enable layer control
+		[self setWantsLayer:YES];
+		[[self layer] setAnchorPoint:CGPointMake(0.0, 0.0)];
+		// get original view bounds and enlarge the height to paint the shadow
+		NSRect oBounds = [self frame];
+		[self setFrame:NSMakeRect(oBounds.origin.x, oBounds.origin.y, oBounds.size.width, oBounds.size.height+30)];
+	}
 	
     return self;
 }
@@ -121,9 +131,39 @@
 		// if tabModel = nil we've got the whiteBoard view:
 		// so paint the view white
 		if (tabModel==nil) {
+			
 			NSRect bounds = [self bounds];
 			[[NSColor whiteColor] set];
-			[NSBezierPath fillRect:bounds];
+			
+			// create the shadow
+			NSShadow *dropShadow = [[NSShadow alloc] init];
+			[dropShadow setShadowColor:[NSColor blackColor]];
+			[dropShadow setShadowBlurRadius:150];
+			[dropShadow setShadowOffset:NSMakeSize(0,0)];
+			
+			// save graphics state
+			[NSGraphicsContext saveGraphicsState];
+			
+			// set the stroke to 10px
+			[NSBezierPath setDefaultLineWidth:10.0];
+			// create the shadowPath			
+			NSBezierPath *path = [[NSBezierPath alloc] init];
+			[path moveToPoint:NSMakePoint(0, bounds.origin.y+30)];
+			[path lineToPoint:NSMakePoint(bounds.size.width, bounds.origin.y+30)];
+			// set the shadow
+			[dropShadow set];
+			// Draw the shadowPath
+			[path stroke];
+						
+			// restore state
+			[NSGraphicsContext restoreGraphicsState];
+			
+			// draw whiteboard
+			[NSBezierPath fillRect:NSMakeRect(bounds.origin.x, bounds.origin.y+22, bounds.size.width, bounds.size.height)];
+			
+			// Bye stuff
+			[path release];
+			[dropShadow release];			
 		}
 		
 		if(drawWindowBounds && ![controller isWhiteBoardVisible]){
@@ -255,23 +295,22 @@
 	CABasicAnimation *anim = [CABasicAnimation animationWithKeyPath:@"position"];
 	anim.delegate = controller; //to get the animationDidStop:finished: message
 	anim.fromValue = [NSValue valueWithPoint:NSMakePoint(viewRect.origin.x, viewRect.size.height)];
-	anim.toValue = [NSValue valueWithPoint:NSMakePoint(viewRect.origin.x, viewRect.origin.y)];
+	anim.toValue = [NSValue valueWithPoint:NSMakePoint(viewRect.origin.x, viewRect.origin.y-22)];
 	anim.fillMode = kCAFillModeForwards;
-	//anim.removedOnCompletion = NO;
 	[anim setValue:@"foldViewIn" forKey:@"animationType"];
 	[anim setDuration:0.25];
 	[[self layer] addAnimation:anim forKey:@"positionAnimation"];
-	[self setFrame:[[NSScreen mainScreen] frame]];	
+	[self setFrame:NSMakeRect(viewRect.origin.x, viewRect.origin.y-22, viewRect.size.width, viewRect.size.height)];	
 }
 
 - (void)foldViewOut {
 	NSRect viewRect = [self frame];
 	CABasicAnimation *anim = [CABasicAnimation animationWithKeyPath:@"position"];
 	anim.delegate = controller; //to get the animationDidStop:finished: message
-	anim.fromValue = [NSValue valueWithPoint:NSMakePoint(viewRect.origin.x, viewRect.origin.y)];
+	anim.fromValue = [NSValue valueWithPoint:NSMakePoint(viewRect.origin.x, viewRect.origin.y-22)];
 	anim.toValue = [NSValue valueWithPoint:NSMakePoint(viewRect.origin.x, viewRect.size.height)];
 	anim.fillMode = kCAFillModeForwards;
-	//anim.removedOnCompletion = NO;
+	anim.removedOnCompletion = NO;
 	[anim setValue:@"foldViewOut" forKey:@"animationType"];
 	[anim setDuration:0.25];	
 	[[self layer] addAnimation:anim forKey:@"positionAnimation"];

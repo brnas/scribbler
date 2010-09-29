@@ -12,7 +12,7 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 
 @implementation SketchController
 
-@synthesize activeSketchView, selectedColor, mainWindow, activeTabletID, isSticky, isWhiteBoardVisible, activeWindow, penIsNearTablet, mouseMode;
+@synthesize activeSketchView, selectedColor, mainWindow, activeTabletID, isSticky, isWhiteBoardVisible, activeWindow, penIsNearTablet, mouseMode, magicDetectorShouldStop;
 
 - (id) initWithMainWindow:(MainWindow *)theMainWindow
 {
@@ -43,13 +43,12 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 	startDragPoint = [[PointModel alloc] initWithDoubleX:-1 andDoubleY:-1];
 	endDragPoint   = [[PointModel alloc] initWithDoubleX:-1 andDoubleY:-1];
 	
-	erase = NO;
-	
-	mouseMode = NO;
-	penIsNearTablet = NO;
-	
-	isSticky = YES;
+	erase				= NO;
+	mouseMode			= NO;
+	penIsNearTablet		= NO;
+	isSticky			= YES;
 	isWhiteBoardVisible = NO;
+	magicDetected		= NO;
 	
 	activeTabletID = [[NSNumber alloc] init];
 	
@@ -58,10 +57,14 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 	// generate whiteBoard
 	whiteBoardView = [[SketchView alloc] initWithController:self andTabModel:nil];
 	
-	/*
-	NSCursor *myCursor = [NSCursor crosshairCursor];
-	[myCursor set];
-	*/
+	// create magicDetector, which keeps an eye on the magical moments and changes the systemTrayIcon
+	NSThread* magicDetector = [[NSThread alloc] initWithTarget:self
+													  selector:@selector(magicDetectorMainMethod:)
+														object:nil];
+	// start the magicDetector
+	magicDetectorShouldStop = NO;
+	[magicDetector start];
+		
 	// Start watching global events to figure out when to show the pane	
 	[NSEvent addGlobalMonitorForEventsMatchingMask:
 	 (NSLeftMouseDraggedMask | NSKeyDownMask | NSKeyUpMask | NSTabletProximityMask | NSMouseEnteredMask | NSLeftMouseDownMask | NSOtherMouseDownMask | NSRightMouseDown | NSOtherMouseDownMask)
@@ -314,9 +317,11 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 															   [activeWindow setWindowWasRepositioned: YES];
 															   NSLog(@"setWindowWasRepositioned: YES");
 															   NSLog(@"currentAppName=%@",[self getKeyWindowsApplicationName:[self getCurrentKeyWindowInfos]]);
+															   magicDetected = YES;
+															   [statusItemRef setTitle:@"★"];
 														   }
 														   else {
-															   // tell activeWindow that window was repositioned
+															   // tell activeWindow that window was not repositioned
 															   [activeWindow setWindowWasRepositioned: NO];
 															   NSLog(@"setWindowWasRepositioned: NO");
 														   }
@@ -328,7 +333,7 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 	
 	// watch out for scrolling events and handle them 
 	[NSEvent addGlobalMonitorForEventsMatchingMask: 
-	 (NSLeftMouseDraggedMask | NSScrollWheelMask | NSLeftMouseUpMask) handler:^(NSEvent *incomingEvent) {
+	 (NSLeftMouseDraggedMask | NSScrollWheelMask | NSLeftMouseUpMask | NSLeftMouseDownMask) handler:^(NSEvent *incomingEvent) {
 		 
 		 // check after each mouseUp if in the window was a scrolling event 
 		 // + check for scrollWheel activity
@@ -340,6 +345,7 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 			 if ([activeWindow loadAccessibilityData]) {
 				 
 				 BOOL wasScrolled = NO;
+				 
 				 if ([activeWindow windowWasRepositioned]) {
 					 NSLog(@"windowWasRepositioned:YES");
 				 }
@@ -352,7 +358,8 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 					 AXUIElementRef focusedUIElement = (AXUIElementRef)[activeWindow getUIElementUnderMouse];
 					 AXUIElementRef parentOfUIElement = (AXUIElementRef)[activeWindow getParentOfUIElement:focusedUIElement];
 					 //NSLog(@"searching scrollArea up from uiElement=%@",[activeWindow getTitleOfUIElement:focusedUIElement]);
-					 AXUIElementRef scrollArea = (AXUIElementRef)[activeWindow getScrollAreaFromWhichUIElementIsChildOf:focusedUIElement];					 
+					 AXUIElementRef scrollArea = (AXUIElementRef)[activeWindow getScrollAreaFromWhichUIElementIsChildOf:focusedUIElement];
+					 
 					 SRUIElementType parentType = [activeWindow getTypeOfUIElement:parentOfUIElement];
 					 SRUIElementType type = [activeWindow getTypeOfUIElement:scrollArea];
 					 
@@ -361,15 +368,17 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 					 // + in case of a 
 					 if ((parentType == SRUIElementIsPartOfAScrollbar && eventType == NSLeftMouseUp) || 
 						 (type == SRUIElementIsScrollArea && eventType == NSScrollWheel) ||
-						 (type == SRUIElementIsScrollArea && eventType == NSLeftMouseDragged) /*|| 
-						 (parentType == SRUIElementHasNoRelevance && eventType == NSLeftMouseDragged)*/) {
+						 (type == SRUIElementIsScrollArea && eventType == NSLeftMouseDragged) || 
+						 (parentType == SRUIElementHasNoRelevance && eventType == NSLeftMouseDragged)) {
 						 
-						 /*NSLog(@"== type:%d ==",type);
+						 NSLog(@"== type:%d ==",type);
 						 
-						 if (parentType == SRUIElementHasNoRelevance && activeScrollArea != NULL) {
-							 scrollArea = (AXUIElementRef)activeScrollArea;
-							 NSLog(@"== scrollArea changed ==");
-						 }*/
+						 if (/*parentType == SRUIElementHasNoRelevance &&*/ activeScrollArea != nil /*&& (AXUIElementRef)activeScrollArea != scrollArea*/) {
+							 //scrollArea = (AXUIElementRef)&activeScrollArea;
+							 NSLog(@"== try to get the last scrollArea from UID=%@ and activeWindow=%@ ==",activeScrollArea,activeWindow);
+							 scrollArea = (AXUIElementRef)[activeWindow getScrollAreaRefWithUID:activeScrollArea];
+							 NSLog(@"== scrollArea changed to activeScrollArea %d ==",activeScrollArea);
+						 }
 						 
 						 // ensure that we've got the scrollArea
 						 type = [activeWindow getTypeOfUIElement:scrollArea];
@@ -413,10 +422,17 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 										 
 										 wasScrolled = YES;
 										 
-										 /*if (eventType == NSLeftMouseDragged) {
-											 NSLog(@"== MouseDragged ==");
-											 activeScrollArea = (id)scrollArea;
-										 }*/
+										 if (eventType == NSLeftMouseDragged && activeScrollArea == nil) {
+											 // save a copy of the scrollArea
+											 //AXUIElementRef focusedUIElementBackup = (AXUIElementRef)[activeWindow getUIElementUnderMouse];
+											 //activeScrollArea = [activeWindow getScrollAreaFromWhichUIElementIsChildOf:focusedUIElementBackup];
+											 activeScrollArea = [currentUID mutableCopy];
+
+											 NSLog(@"== saved activeScrollArea %@ ==",activeScrollArea);
+										 }
+										 
+										 magicDetected = YES;
+										 [statusItemRef setTitle:@"★"];
 									 }
 								 }
 							 }
@@ -428,22 +444,20 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 
 				 }	
 				 
-				 /*if (eventType == NSLeftMouseUp) {
-					 NSLog(@"== MouseUp ==");
-					 activeScrollArea = NULL;
-				 }*/
+				 if (eventType == NSLeftMouseUp) {
+					 NSLog(@"== set activeScrollArea to NULL ==");
+					 activeScrollArea = nil;
+				 }
 				
 				 if(!wasScrolled && eventType == NSLeftMouseUp) {
 					 [self refreshScrollingInfos];
 				 }
-				
 			 }
 			 else {
 				 kumMovingDelta = NSZeroPoint;
 				 [activeWindow setWindowWasRepositioned:NO];
 			 }
-
-		 }		 
+		 }		
 	 }];
 	
 	// Start watching local events to figure out when to hide the pane	
@@ -753,6 +767,7 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 - (void) setWhiteBoardVisible:(BOOL)flag {
 	if(flag) {
 		NSLog(@"setWhiteBoardVisible=YES");
+		[mainWindow showGlassPane:YES];
 		[self setIsWhiteBoardVisible:YES];
 		[self keyWindowHandler];
 		[activeSketchView foldViewIn];
@@ -760,9 +775,11 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 	else {
 		NSLog(@"setWhiteBoardVisible=NO");
 		[activeSketchView foldViewOut];
-		//[self setIsWhiteBoardVisible:NO];
-		//[self keyWindowHandler];
 	}
+}
+
+- (void) setStatusItemRef:(NSStatusItem *)statusItemReference {
+	statusItemRef = statusItemReference;
 }
 
 - (void)animationDidStop:(CAAnimation *)animation finished:(BOOL)flag 
@@ -973,6 +990,25 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 	lastScrollBounds = [activeWindow getScrollingInfosOfCurrentWindow];
 	kumMovingDelta = NSZeroPoint;
 	[activeWindow setWindowWasRepositioned:NO];
+}
+
+- (void)magicDetectorMainMethod:(id)param
+{
+	// create top level auto release pool, that will release objects
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+		
+	// main loop
+	while(!magicDetectorShouldStop) {
+		usleep(50000);
+		if (!magicDetected) {
+			// if magic occured reset the systemTray 
+			[statusItemRef setTitle:@"☆"];
+		}
+		magicDetected = NO;
+	}
+		
+	// release pool
+	[pool release];
 }
 
 @end

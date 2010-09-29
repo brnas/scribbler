@@ -42,17 +42,21 @@
 	BOOL							mouseMode;
 	BOOL							mainWindowWasVisible;
 	BOOL							penIsNearTablet;
+	BOOL							magicDetectorShouldStop;
+	BOOL							magicDetected;
 	NSNumber					*	activeTabletID;
 	
 	NSDictionary				*	lastScrollBounds;
 	NSPoint							kumMovingDelta;
-	id								activeScrollArea;
+	NSString					*	activeScrollArea;
+	
+	NSStatusItem				*	statusItemRef;
 }
 @property (retain) NSColor *selectedColor;
 @property (retain) SketchView *activeSketchView;
 @property (retain) MainWindow *mainWindow;
 @property (retain) NSNumber *activeTabletID;
-@property (readwrite) BOOL isSticky, isWhiteBoardVisible, penIsNearTablet, mouseMode;
+@property (readwrite) BOOL isSticky, isWhiteBoardVisible, penIsNearTablet, mouseMode, magicDetectorShouldStop;
 @property (retain) WindowModel *activeWindow;
 
 - (id) initWithMainWindow:(MainWindow *)theMainWindow;
@@ -64,6 +68,7 @@
 - (void) setClickThrough:(BOOL)flag;
 - (void) showHide;
 - (void) setWhiteBoardVisible:(BOOL)flag;
+- (void) setStatusItemRef:(NSStatusItem *)statusItemReference;
 
 - (NSMutableDictionary*)getCurrentKeyWindowInfos;
 - (NSNumber*) getKeyWindowID: (NSMutableDictionary*)windowInfos;

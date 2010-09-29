@@ -64,6 +64,7 @@ typedef enum _SRUIElementType {
 - (NSArray *) attributeNamesOfUIElement:(AXUIElementRef)element;
 - (id) valueOfAttribute:(NSString *)attribute ofUIElement:(AXUIElementRef)element;
 - (NSString *) getUIDofScrollArea:(AXUIElementRef)scrollArea;
+- (id) getScrollAreaRefWithUID:(NSString *)uid;
 //- (void) setWindowWasRepositioned: (BOOL) flag;
 
 - (void) getUIElementInfo;

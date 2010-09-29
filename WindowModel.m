@@ -221,6 +221,30 @@
 	return uid;
 }
 
+- (id) getScrollAreaRefWithUID:(NSString *)uid {
+	// search for scrollAreas in focusedWindow
+	NSArray *scrollAreas = [self findScrollAreasInUIElement:_focusedWindow];
+	NSLog(@"found these scrollAreas: %@",scrollAreas);
+	
+	// get scrollPosition of each scrollArea
+	for(int i=0; i<[scrollAreas count]; i++) {
+		// get ith scrollArea
+		AXUIElementRef scrollArea = (AXUIElementRef)[scrollAreas objectAtIndex:i];
+		NSLog(@"got %i.textArea",i);
+		// calc the uid of this scrollArea
+		NSString *cur_uid = [self getUIDofScrollArea:scrollArea];
+		NSLog(@"calced %d.cur_uid %@",i,cur_uid);
+		// check if we've found the correct one
+		if ([uid isEqualToString:cur_uid]) {
+			//[cur_uid release];
+			NSLog(@"found it and return it");
+			return (id)scrollArea;
+		}		
+	}
+	
+	return nil;
+}
+
 /*- (void) setWindowWasRepositioned: (BOOL) flag {
 	windowWasRepositioned = flag;
 	[self initScrollPositionsOfWindow];
