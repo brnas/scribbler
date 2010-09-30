@@ -37,7 +37,8 @@
 	controller   = [theController  retain];
 	
 	// Get the key window bounds for our fabulous glow
-	[self updateKeyWindowBounds];
+	if(theTabModel != nil)
+		[self updateKeyWindowBounds];
 	
 	customCursor = [NSCursor crosshairCursor];
 	theNormalCursor = [NSCursor arrowCursor];
@@ -83,7 +84,8 @@
 	controller   = [theController  retain];
 	
 	// Get the key window bounds for our fabulous glow
-	[self updateKeyWindowBounds];
+	if(theTabModel != nil)
+		[self updateKeyWindowBounds];
 	
 	customCursor = [NSCursor crosshairCursor];
 	theNormalCursor = [NSCursor arrowCursor];
@@ -98,7 +100,7 @@
 	
 	if (theTabModel == nil) {
 		// enable layer control
-		//[self setWantsLayer:YES];
+		[self setWantsLayer:YES];
 		[[self layer] setAnchorPoint:CGPointMake(0.0, 0.0)];
 		// get original view bounds and enlarge the height to paint the shadow
 		NSRect oBounds = [self frame];
@@ -116,18 +118,7 @@
 		[theNormalCursor set];
 	
 	if(draw) {
-		
-		if(!clickThrough) {
-			NSRect bounds = [self bounds];
-			[[[NSColor grayColor] colorWithAlphaComponent:0.05] set];
-			[NSBezierPath fillRect:bounds];
-		}
-		else {
-			NSRect bounds = [self bounds];
-			[[NSColor clearColor] set];
-			[NSBezierPath fillRect:bounds];
-		}
-		
+				
 		// if tabModel = nil we've got the whiteBoard view:
 		// so paint the view white
 		if (tabModel==nil) {
@@ -164,6 +155,18 @@
 			// Bye stuff
 			[path release];
 			[dropShadow release];			
+		}
+		else {
+			if(!clickThrough) {
+				NSRect bounds = [self bounds];
+				[[[NSColor grayColor] colorWithAlphaComponent:0.05] set];
+				[NSBezierPath fillRect:bounds];
+			}
+			else {
+				NSRect bounds = [self bounds];
+				[[NSColor clearColor] set];
+				[NSBezierPath fillRect:bounds];
+			}
 		}
 		
 		if(drawWindowBounds && ![controller isWhiteBoardVisible]){

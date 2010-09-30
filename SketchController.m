@@ -358,7 +358,7 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 		 // + check for scrollWheel activity
 		 NSEventType eventType = [incomingEvent type];
 		 
-		 if (eventType == NSLeftMouseUp || eventType == NSScrollWheel || eventType == NSLeftMouseDragged && !isWhiteBoardVisible) {
+		 if ((eventType == NSLeftMouseUp || eventType == NSScrollWheel || eventType == NSLeftMouseDragged) && !isWhiteBoardVisible) {
 			 
 			 BOOL weCanLoad = YES;
 			 
@@ -485,7 +485,7 @@ id refToSelf; // declaration of a reference to self - to access class functions 
 	
 	// Start watching local events to figure out when to hide the pane	
 	[NSEvent addLocalMonitorForEventsMatchingMask:
-	 (NSOtherMouseDownMask | NSRightMouseDownMask | NSMouseMovedMask | NSKeyDownMask | NSKeyUpMask | NSTabletProximityMask)// | NSTabletPointMask)
+	 (NSOtherMouseDownMask | NSRightMouseDownMask | NSKeyDownMask | NSKeyUpMask | NSTabletProximityMask)// | NSTabletPointMask)
 										  handler:^(NSEvent *incomingEvent) {
 											  
 											  NSEvent *result = incomingEvent;
